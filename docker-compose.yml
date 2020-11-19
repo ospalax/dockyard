@@ -8,35 +8,42 @@ services:
     env_file:
       - .env
     restart: "no"
-    image: registry:2.7.0
+    #image: registry:2.7.0
+    image: "httpd:2.4"
     entrypoint: /bin/sh
     command: /bootstrap.sh
     volumes:
       - ./bootstrap.sh:/bootstrap.sh:ro
       - ./auth:/auth
-    environment:
-      BASIC_AUTH_USERNAME: "${BASIC_AUTH_USERNAME:-docker}"
-      BASIC_AUTH_PASSWORD: "${BASIC_AUTH_PASSWORD:-changeme123}"
-      REGISTRY_AUTH_HTPASSWD_PATH: "${REGISTRY_AUTH_HTPASSWD_PATH}"
 
   registry:
-    env_file:
-      - .env
     restart: "always"
     image: registry:2.7.0
-    ports:
-      - 4443:443
     environment:
-      REGISTRY_HTTP_ADDR: "0.0.0.0:443"
-      REGISTRY_HTTP_TLS_CERTIFICATE: "${REGISTRY_HTTP_TLS_CERTIFICATE:-/certs/dockyard-example.crt}"
-      REGISTRY_HTTP_TLS_KEY: "${REGISTRY_HTTP_TLS_KEY:-/certs/dockyard-example.key}"
-      REGISTRY_AUTH: "htpasswd"
-      REGISTRY_AUTH_HTPASSWD_PATH: "${REGISTRY_AUTH_HTPASSWD_PATH}"
-      REGISTRY_AUTH_HTPASSWD_REALM: "Registry Realm"
+      REGISTRY_HTTP_ADDR: "0.0.0.0:${REGISTRY_HTTP_PRIVATE_PORT:-5000}"
+      #REGISTRY_HTTP_TLS_CERTIFICATE: "${REGISTRY_HTTP_TLS_CERTIFICATE}"
+      #REGISTRY_HTTP_TLS_KEY: "${REGISTRY_HTTP_TLS_KEY}"
+      #REGISTRY_AUTH: "htpasswd"
+      #REGISTRY_AUTH_HTPASSWD_PATH: "${REGISTRY_AUTH_HTPASSWD_PATH}"
+      #REGISTRY_AUTH_HTPASSWD_REALM: "Registry Realm"
     volumes:
       - registry_data:/var/lib/registry
-      - ./certs:/certs:ro
-      - ./auth:/auth:ro
+      #- ./certs:/certs:ro
+      #- ./auth:/auth:ro
     depends_on:
       - bootstrap-registry
 
+  apache:
+    env_file:
+      - .env
+    restart: "always"
+    image: "httpd:2.4"
+    hostname: "${REGISTRY_HOSTNAME:-docker-registry}"
+    ports:
+      - "${DOCKYARD_PUBLISHED_PORT:-5443}:${DOCKYARD_PUBLIC_PORT:-5443}"
+    volumes:
+      - ./conf:/usr/local/apache2/conf:ro
+      - ./certs:/certs:ro
+      - ./auth:/auth:ro
+    depends_on:
+      - registry
